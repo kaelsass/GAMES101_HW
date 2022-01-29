@@ -241,7 +241,7 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
     // Normal n = normalize(TBN * ln)
     Vector3f n = normal;
     float sqrtXZ = sqrt(n.x() * n.x() + n.z() * n.z());
-    Vector3f t = Vector3f(n.x() * n.y() / sqrtXZ, sqrtXZ, n.z() * n.y() / sqrtXZ);
+    Vector3f t = Vector3f(n.x() * n.y() / sqrtXZ, sqrtXZ, n.z() * n.y() / sqrtXZ); // ?
     Vector3f b = n.cross(t);
     Matrix3f TBN;
     TBN << t.x(), b.x(), n.x(),
@@ -251,7 +251,7 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
     Vector2f uv = payload.tex_coords;
     float dU = kh * kn * (texture->getColor(uv.x() + 1.f / texture->width, uv.y()).norm() - texture->getColor(uv.x(), uv.y()).norm());
     float dV = kh * kn * (texture->getColor(uv.x(), uv.y() + 1.f / texture->height).norm() - texture->getColor(uv.x(), uv.y()).norm());
-    Vector3f ln(-dU, -dV, 1.f);
+    Vector3f ln(-dU, -dV, 1.f); // (1, 0, dU)与(0, 1, dV)的叉乘，参考：https://blog.csdn.net/l76988469s/article/details/3407931
     Vector3f newPosition = point + kn * normal * (texture->getColor(uv.x(), uv.y()).norm());
     normal = (TBN * ln).normalized();
 
