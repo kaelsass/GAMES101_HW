@@ -389,11 +389,13 @@ int main(int argc, const char** argv)
         //r.draw(pos_id, ind_id, col_id, rst::Primitive::Triangle);
         r.draw(TriangleList);
         cv::Mat image(700, 700, CV_32FC3, r.frame_buffer().data());
+        cv::Mat imageFlip(700, 700, CV_32FC3, r.frame_buffer().data());
         image.convertTo(image, CV_8UC3, 1.0f);
         cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+        cv::flip(image, imageFlip, 0);
 
-        cv::imshow("image", image);
-        cv::imwrite(filename, image);
+        cv::imshow("image", imageFlip);
+        cv::imwrite(filename, imageFlip);
         key = cv::waitKey(10);
 
         if (key == 'a' )
