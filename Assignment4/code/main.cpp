@@ -4,6 +4,8 @@
 
 std::vector<cv::Point2f> control_points;
 
+bool useAA = false;
+
 void mouse_handler(int event, int x, int y, int flags, void *userdata) 
 {
     if (event == cv::EVENT_LBUTTONDOWN && control_points.size() < 4) 
@@ -50,6 +52,40 @@ cv::Point2f recursive_bezier(const std::vector<cv::Point2f> &control_points, flo
     return recursive_bezier(nextCtrlPoints, t);
 }
 
+void AA(cv::Point2f point, cv::Mat& window)
+{
+    int min_x = std::max(0, (int)floor(point.x));
+    int max_x = std::min((int)ceil(point.x), window.cols - 1);
+    int min_y = std::max(0, (int)floor(point.y));
+    int max_y = std::min((int)ceil(point.y), window.rows - 1);
+    float x_diff = point.x - min_x;
+    float y_diff = point.y - min_y;
+    int x_sign = x_diff <= 0.5 ? -1 : 1;
+    int y_sign = y_diff <= 0.5 ? -1 : 1;
+
+    cv::Point2f p00 = cv::Point2f(min_x + 0.5f, min_y + 0.5f);
+    cv::Point2f p01 = cv::Point2f(min_x + x_sign + 0.5f, min_y + 0.5f);
+    cv::Point2f p10 = cv::Point2f(min_x + 0.5f, min_y + y_sign + 0.5f);
+    cv::Point2f p11 = cv::Point2f(min_x + x_sign + 0.5f, min_y + y_sign + 0.5f);
+    std::vector<cv::Point2f> points{p01, p10, p11};
+
+    window.at<cv::Vec3b>(p00.y, p00.x)[1] = 255;
+
+    cv::Point2f diffVec = point - p00;
+    float nearestDistance = sqrt(diffVec.x * diffVec.x + diffVec.y * diffVec.y);
+    for (cv::Point2f curPoint : points) {
+        cv::Point2f curDiffVec = point - curPoint;
+        float distance = sqrt(curDiffVec.x * curDiffVec.x + curDiffVec.y * curDiffVec.y);
+        uchar curColor = window.at<cv::Vec3b>(curPoint.y, curPoint.y)[1];
+        uchar oldColor = curColor;
+        curColor = std::max(curColor, (uchar) (255 * nearestDistance / distance));
+        if (oldColor == 255 && curColor < 255) {
+            std::cout << "[error] oldColor: " << oldColor << ", curColor: " << curColor << ", ratio: " << nearestDistance / distance << std::endl;
+        }
+        window.at<cv::Vec3b>(curPoint.y, curPoint.x)[1] = curColor;
+    }
+}
+
 void bezier(const std::vector<cv::Point2f> &control_points, cv::Mat &window) 
 {
     // TODO: Iterate through all t = 0 to t = 1 with small steps, and call de Casteljau's 
@@ -57,9 +93,12 @@ void bezier(const std::vector<cv::Point2f> &control_points, cv::Mat &window)
     float step = 0.001;
     for (float t = 0; t <= 1; t += step) {
         cv::Point2f point = recursive_bezier(control_points, t);
-        window.at<cv::Vec3b>(point.y, point.x)[1] = 255;
+        if (useAA) {
+            AA(point, window);
+        } else {
+            window.at<cv::Vec3b>(point.y, point.x)[1] = 255;
+        }
     }
-
 }
 
 int main() 
