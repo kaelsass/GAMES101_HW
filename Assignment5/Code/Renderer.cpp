@@ -26,6 +26,7 @@ Vector3f reflect(const Vector3f &I, const Vector3f &N)
 //
 // If the ray is inside, you need to invert the refractive indices and negate the normal N
 // [/comment]
+// 折射向量计算，参考：https://blog.csdn.net/yinhun2012/article/details/79472364
 Vector3f refract(const Vector3f &I, const Vector3f &N, const float &ior)
 {
     float cosi = clamp(-1, 1, dotProduct(I, N));
@@ -52,12 +53,12 @@ float fresnel(const Vector3f &I, const Vector3f &N, const float &ior)
     float etai = 1, etat = ior;
     if (cosi > 0) {  std::swap(etai, etat); }
     // Compute sini using Snell's law
-    float sint = etai / etat * sqrtf(std::max(0.f, 1 - cosi * cosi));
+    float sint = etai / etat * sqrtf(std::max(0.f, 1 - cosi * cosi)); // sint * etat = sini * etai = etai * sqrt(1 - cosi * cosi)
     // Total internal reflection
     if (sint >= 1) {
         return 1;
     }
-    else {
+    else {  // https://zhuanlan.zhihu.com/p/255027783
         float cost = sqrtf(std::max(0.f, 1 - sint * sint));
         cosi = fabsf(cosi);
         float Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
@@ -170,7 +171,7 @@ Vector3f castRay(
                 // is composed of a diffuse and a specular reflection component.
                 // [/comment]
                 Vector3f lightAmt = 0, specularColor = 0;
-                Vector3f shadowPointOrig = (dotProduct(dir, N) < 0) ?
+                Vector3f shadowPointOrig = (dotProduct(dir, N) < 0) ? // @sima ?
                                            hitPoint + N * scene.epsilon :
                                            hitPoint - N * scene.epsilon;
                 // [comment]
@@ -185,7 +186,7 @@ Vector3f castRay(
                     float LdotN = std::max(0.f, dotProduct(lightDir, N));
                     // is the point in shadow, and is the nearest occluding object closer to the object than the light itself?
                     auto shadow_res = trace(shadowPointOrig, lightDir, scene.get_objects());
-                    bool inShadow = shadow_res && (shadow_res->tNear * shadow_res->tNear < lightDistance2);
+                    bool inShadow = shadow_res && (shadow_res->tNear * shadow_res->tNear < lightDistance2); //这里因为lightDir已归一化，所以比较 dotProduct(shadow_res->tNear * lightDir, shadow_res->tNear * lightDir) < lightDistance2 可化简为此式
 
                     lightAmt += inShadow ? 0 : light->intensity * LdotN;
                     Vector3f reflectionDirection = reflect(-lightDir, N);
@@ -231,6 +232,7 @@ void Renderer::Render(const Scene& scene)
             // x (horizontal) variable with the *imageAspectRatio*
 
             Vector3f dir = Vector3f(x, y, -1); // Don't forget to normalize this direction!
+            dir = normalize(dir);
             framebuffer[m++] = castRay(eye_pos, dir, scene, 0);
         }
         UpdateProgress(j / (float)scene.height);
