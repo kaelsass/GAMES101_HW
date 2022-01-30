@@ -16,7 +16,7 @@ bool rayTriangleIntersect(const Vector3f& v0, const Vector3f& v1, const Vector3f
     Vector3f S = orig - v0;
     Vector3f S1 = crossProduct(dir, E2);
     Vector3f S2 = crossProduct(S, E1);
-    float scale = dotProduct(S1, E1);
+    float scale = 1.f / dotProduct(S1, E1);
     float t = scale * dotProduct(S2, E2);
     float b1 = scale * dotProduct(S1, S);
     float b2 = scale * dotProduct(S2, dir);
