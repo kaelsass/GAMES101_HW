@@ -96,19 +96,19 @@ inline bool Bounds3::IntersectP(const Ray& ray, const Vector3f& invDir,
     // invDir: ray direction(x,y,z), invDir=(1.0/x,1.0/y,1.0/z), use this because Multiply is faster that Division
     // dirIsNeg: ray direction(x,y,z), dirIsNeg=[int(x>0),int(y>0),int(z>0)], use this to simplify your logic
     // TODO test if ray bound intersects
-    Vector3f tMinVec = (pMin - ray.direction) * invDir;
-    Vector3f tMaxVec = (pMax - ray.direction) * invDir;
-    if (dirIsNeg[0] < 0) {
+    Vector3f tMinVec = (pMin - ray.origin) * invDir;
+    Vector3f tMaxVec = (pMax - ray.origin) * invDir;
+    if (dirIsNeg[0] <= 0) {
         float temp = tMinVec.x;
         tMinVec.x = tMaxVec.x;
         tMaxVec.x = temp;
     }
-    if (dirIsNeg[1] < 0) {
+    if (dirIsNeg[1] <= 0) {
         float temp = tMinVec.y;
         tMinVec.y = tMaxVec.y;
         tMaxVec.y = temp;
     }
-    if (dirIsNeg[2] < 0) {
+    if (dirIsNeg[2] <= 0) {
         float temp = tMinVec.z;
         tMinVec.z = tMaxVec.z;
         tMaxVec.z = temp;
