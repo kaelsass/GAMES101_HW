@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <map>
 #include "BVH.hpp"
 
 BVHAccel::BVHAccel(std::vector<Object*> p, int maxPrimsInNode,
@@ -49,38 +50,94 @@ BVHBuildNode* BVHAccel::recursiveBuild(std::vector<Object*> objects)
         return node;
     }
     else {
+        std::vector<Object*> leftshapes;
+        std::vector<Object*> rightshapes;
         Bounds3 centroidBounds;
         for (int i = 0; i < objects.size(); ++i)
             centroidBounds =
-                Union(centroidBounds, objects[i]->getBounds().Centroid());
-        int dim = centroidBounds.maxExtent();
-        switch (dim) {
-        case 0:
-            std::sort(objects.begin(), objects.end(), [](auto f1, auto f2) {
-                return f1->getBounds().Centroid().x <
-                       f2->getBounds().Centroid().x;
-            });
+                    Union(centroidBounds, objects[i]->getBounds().Centroid());
+        switch(splitMethod) {
+            case SplitMethod::NAIVE: {
+                int dim = centroidBounds.maxExtent();
+                switch (dim) {
+                    case 0:
+                        std::sort(objects.begin(), objects.end(), [](auto f1, auto f2) {
+                            return f1->getBounds().Centroid().x <
+                                   f2->getBounds().Centroid().x;
+                        });
+                        break;
+                    case 1:
+                        std::sort(objects.begin(), objects.end(), [](auto f1, auto f2) {
+                            return f1->getBounds().Centroid().y <
+                                   f2->getBounds().Centroid().y;
+                        });
+                        break;
+                    case 2:
+                        std::sort(objects.begin(), objects.end(), [](auto f1, auto f2) {
+                            return f1->getBounds().Centroid().z <
+                                   f2->getBounds().Centroid().z;
+                        });
+                        break;
+                }
+
+                auto beginning = objects.begin();
+                auto middling = objects.begin() + (objects.size() / 2);
+                auto ending = objects.end();
+
+                leftshapes = std::vector<Object*>(beginning, middling);
+                rightshapes = std::vector<Object*>(middling, ending);
+            }
             break;
-        case 1:
-            std::sort(objects.begin(), objects.end(), [](auto f1, auto f2) {
-                return f1->getBounds().Centroid().y <
-                       f2->getBounds().Centroid().y;
-            });
-            break;
-        case 2:
-            std::sort(objects.begin(), objects.end(), [](auto f1, auto f2) {
-                return f1->getBounds().Centroid().z <
-                       f2->getBounds().Centroid().z;
-            });
+            case SplitMethod::SAH: {
+                int bucketCount = 12;
+                int minAxis = 0;
+                int minIndex = 0;
+                float minCost = std::numeric_limits<float>::infinity();
+                std::map<int, std::map<int, int>> indexMap;
+                for (int axis = 0; axis < 3; axis++) {
+                    std::vector<Bounds3> boundsBucket(bucketCount);
+                    std::vector<int> countBucket(bucketCount);
+                    for (int i = 0; i < objects.size(); i++) {
+                        int bucketIndex = bucketCount * centroidBounds.Offset(objects[i]->getBounds().Centroid())[axis];
+                        bucketIndex = std::clamp(bucketIndex, 0, bucketCount - 1);
+                        Bounds3 curBounds = boundsBucket[bucketIndex];
+                        curBounds = Union(curBounds, objects[i]->getBounds());
+                        boundsBucket[bucketIndex] = curBounds;
+                        countBucket[bucketIndex]++;
+                        indexMap[axis][i] = bucketIndex;
+                    }
+                    std::vector<Bounds3> leftBounds(boundsBucket), rightBounds(boundsBucket);
+                    for (int partition = 1; partition < bucketCount; partition++) {
+                        leftBounds[partition] = Union(leftBounds[partition - 1], leftBounds[partition]);
+                    }
+                    for (int partition = bucketCount - 2; partition >= 0; partition--) {
+                        rightBounds[partition] = Union(rightBounds[partition + 1], rightBounds[partition]);
+                    }
+                    int leftBucketCount = 0;
+                    int rightBucketCount = objects.size();
+                    for (int partition = 0; partition < bucketCount - 1; partition++) {
+                        leftBucketCount += countBucket[partition];
+                        rightBucketCount -= countBucket[partition];
+                        float cost = (leftBucketCount * leftBounds[partition].SurfaceArea() +
+                                       rightBucketCount * rightBounds[partition + 1].SurfaceArea()) /
+                                      bounds.SurfaceArea();
+                        if (minCost > cost) {
+                            minCost = cost;
+                            minAxis = axis;
+                            minIndex = partition;
+                        }
+                    }
+                }
+                for (int i = 0; i < objects.size(); i++) {
+                    if (indexMap[minAxis][i] <= minIndex) {
+                        leftshapes.push_back(objects[i]);
+                    } else {
+                        rightshapes.push_back(objects[i]);
+                    }
+                }
+            }
             break;
         }
-
-        auto beginning = objects.begin();
-        auto middling = objects.begin() + (objects.size() / 2);
-        auto ending = objects.end();
-
-        auto leftshapes = std::vector<Object*>(beginning, middling);
-        auto rightshapes = std::vector<Object*>(middling, ending);
 
         assert(objects.size() == (leftshapes.size() + rightshapes.size()));
 
